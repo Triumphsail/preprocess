@@ -18,14 +18,14 @@
 #include "Graph/Queue.h"
 #include "PreProcess/fileSystem.h"
 //#include "Debug.h"
-typedef int VertexId;
+typedef uint32_t VertexId;
 typedef long EdgeId;
 typedef float Weight;
 #define IOSIZE 1048576 * 24
 #define PAGESIZE 4096
 //#define machineNum 4
 void gridPartition(std::string input, std::string output, VertexId vertices, EdgeId edges,
-				 int edgeUnit, int partitions, int edgeType, int machineNum, std::vector<int> &verticesOut);
+				 int edgeUnit, int partitions, int edgeType, int machineNum, std::vector<VertexId> &verticesOut);
 int get_partition_id(const VertexId vertices, const int partitions, const VertexId vertex_id) {
     if (vertices % partitions==0) {
             const int partition_size = vertices / partitions;
@@ -50,7 +50,7 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
     }
     edges = file_size(input) / edgeUnit;
     std::vector<VertexId> verticesOut(vertices, 0);
-	printf("Vertices: %d, Edges: %ld\n", vertices, edges);
+	//printf("Vertices: %d, Edges: %ld\n", vertices, edges);
     
 	char *buffer =  (char *)memalign(PAGESIZE, IOSIZE);
     int fin = open(input.c_str(), O_RDONLY);
@@ -64,7 +64,7 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
             source = *(VertexId*)(buffer + pos);
             //target = *(VertexId*)(buffer + pos + sizeof(VertexId));
             if(source>=vertices) {
-                printf("Error, source: %d\n", source);
+                printf("Error, source: %ld\n", source);
                 return;
             }
             verticesOut[source]++;
@@ -77,8 +77,8 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
     }
     
     sort(tt.begin(), tt.end(),[](const std::pair<VertexId, VertexId> &x, const std::pair<VertexId, VertexId> &y){return x.second < y.second;});
-    VertexId *gridOffset = new VertexId [partitions];
-	VertexId *tempOffset = new VertexId [partitions];
+    size_t *gridOffset = new size_t [partitions];
+	size_t *tempOffset = new size_t [partitions];
     const int partitionSplit = vertices % partitions;
     const int partitionSize = vertices / partitions + 1;
     for(int i = 0; i < partitions; i++) {
@@ -92,9 +92,15 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
 		tempOffset[i] = gridOffset[i+1];
 	}
 	tempOffset[partitions - 1] = vertices;
-    const int vertex_buffer_size = sizeof(VertexId) * 2;
+    const size_t vertex_buffer_size = sizeof(VertexId) * 2;
     VertexId start = 0, end = vertices-1;
-    char *vertexBuffer = (char *)memalign(PAGESIZE, vertex_buffer_size*vertices);
+	size_t v = vertices;
+	size_t length = v * vertex_buffer_size;
+    char *vertexBuffer = (char *)memalign(PAGESIZE, length);
+	if (vertexBuffer == NULL) {
+		printf("memalign buffer failed.\n");
+		return;
+	}
     while (start<end)
      {
         VertexId pID = start % partitions;
@@ -128,7 +134,6 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
 		*(VertexId*) (vertexBuffer + gridOffset[pID] * vertex_buffer_size + sizeof(VertexId)) = tt[start].second;
 		// printf("pid:%d, %d, %d, %d\n",pID, gridOffset[pID], tt[start].second, start);
     }
-
 	// 创建输出文件夹
     if (file_exists(output)) {
 		remove_directory(output);
@@ -167,7 +172,7 @@ void preProcess(std::string input, std::string output, VertexId vertices, int pa
 	verticesOut.shrink_to_fit();
 }
 
-void gridPartition(std::string input, std::string output, VertexId vertices, EdgeId edges, int edgeUnit, int partitions, int edgeType, int machineNum, std::vector<int> &verticesOut) {
+void gridPartition(std::string input, std::string output, VertexId vertices, EdgeId edges, int edgeUnit, int partitions, int edgeType, int machineNum, std::vector<VertexId> &verticesOut) {
     int parallelism = std::thread::hardware_concurrency();
     char ** buffers = new char * [parallelism*2];
 	bool * occupied = new bool [parallelism*2];
@@ -386,7 +391,7 @@ void gridPartition(std::string input, std::string output, VertexId vertices, Edg
 	//printf("it takes %.2f seconds to generate edge grid\n", get_time() - start_time);
 
 	FILE * fmeta = fopen((output+"/meta").c_str(), "w");
-	fprintf(fmeta, "%d %d %ld %d %d", edgeType, vertices, edges, partitions, machineNum);
+	fprintf(fmeta, "%d %ld %ld %d %d", edgeType, vertices, edges, partitions, machineNum);
 	fclose(fmeta);
     /********************将每个分区的属性写到对应文件中*********************/
 }
