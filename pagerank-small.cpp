@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     int degreeFile = open(path.c_str(), O_RDONLY);
     char* buffer = (char *)memalign(PAGESIZE, IOSIZE);
     MY_ASSERT(buffer != NULL, "[PAGERANK] Cannot memalign memory.");
-    int bytes = -1;
+    long bytes = -1;
     uint32_t vId = 0;
     while(true) {
         bytes = read(degreeFile, buffer, IOSIZE);
@@ -234,13 +234,8 @@ int main(int argc, char *argv[]) {
     FILE * file = fopen(pagerankFile.c_str(), "wb");
 	fclose(file);
     int fout = open(pagerankFile.c_str(), O_WRONLY);
-    long bytes = write(fout, pagerank, localVertexSize * sizeof(float));
+    bytes = write(fout, pagerank, vertexSize * sizeof(float));
     std::cout << "PageRank Write Success, bytes: " << bytes << std::endl;
-    // double endTime = getWallTime();
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    std::cout <<"use "<< diff.count() <<" s\n";
-    // std::cout << "time: " << endTime - startTime << "ms" << std::endl;
     delete pagerank;
 
     auto end = std::chrono::high_resolution_clock::now();
